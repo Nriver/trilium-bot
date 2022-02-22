@@ -13,4 +13,7 @@ Notes.
 2. Open `settings.py` and change the config to yours.
 3. Run with `python3 trilium-bot.py`.
 
+# How to update
 
+1. Update code `git pull`
+2. Update dependency `pip3 install -U -r requirements.txt --user`
