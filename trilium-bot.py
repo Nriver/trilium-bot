@@ -96,7 +96,7 @@ def send_welcome(message):
 
     markup = types.ReplyKeyboardMarkup(row_width=2, one_time_keyboard=True)
 
-    btn_todo = types.KeyboardButton('TODO')
+    btn_todo = types.KeyboardButton('TODO List')
     btn_toggle_quick_add = types.KeyboardButton('Toggle Quick Add')
     btn_restart = types.KeyboardButton('Restart')
     btn_status = types.KeyboardButton('Status')
@@ -112,8 +112,7 @@ def send_welcome(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    logger.info('callback')
-    logger.info(f'{call.data}')
+    logger.info(f'callback {call.data}')
     data = json.loads(call.data)
     chat_id = call.message.chat.id
     message_id = call.message.id
@@ -150,7 +149,6 @@ def callback_query(call):
     elif data['type'] == 'Delete TODO confirm':
         logger.info('Delete todo confirm')
         confirm = data['confirm']
-        logger.info(confirm)
         todo = data_dict[f'{chat_id}_TODO_delete']
         ea.delete_todo(todo.index)
         todo_list = ea.get_todo()
@@ -164,9 +162,9 @@ def callback_query(call):
 
 
 def process_add_todo(message):
-    logger.info(f'message {message}')
+    logger.info(f'process_add_todo')
     chat_id = message.chat.id
-    todo_description = message.text
+    todo_description = message.text.strip()
     ea.add_todo(todo_description)
     todo_list = ea.get_todo()
     bot.send_message(chat_id, text="Current TODO List",
@@ -174,10 +172,10 @@ def process_add_todo(message):
 
 
 def process_update_todo(message):
-    logger.info(f'message {message}')
+    logger.info(f'process_update_todo')
     chat_id = message.chat.id
     todo = data_dict[f'{chat_id}_TODO']
-    todo.description = message.text
+    todo.description = message.text.strip()
     ea.update_todo(todo.index, todo.description)
     todo_list = ea.get_todo()
     bot.send_message(chat_id, text="Current TODO List",
@@ -203,7 +201,7 @@ def echo_all(message):
         return
     elif msg in ['Status', ]:
         return bot.reply_to(message, f"Started {str(datetime.now() - begin_time).split('.')[0]}")
-    elif msg in ['TODO', ]:
+    elif msg in ['TODO List', ]:
         todo_list = ea.get_todo()
         return bot.reply_to(message, "Current TODO List", reply_markup=build_todo_list_markup(todo_list))
     elif msg in ['Add TODO', ]:
@@ -222,7 +220,6 @@ def echo_all(message):
     if config['quick_add']:
         day_note = ea.inbox(datetime.now().strftime("%Y-%m-%d"))
         logger.info(f"day_note {day_note['noteId']}")
-        logger.info(msg)
         ea.create_note(
             parentNoteId=day_note['noteId'],
             title="TG message",
