@@ -1,6 +1,3 @@
-http_proxy = 'http://127.0.0.1:10809'
-# http_proxy = None
-
 # Trilium bot
 token = 'YOUR_TELEGRAM_BOT_TOKEN'
 
@@ -9,5 +6,9 @@ token = 'YOUR_TELEGRAM_BOT_TOKEN'
 admin_list = []
 
 # Trilium ETAPI
+# http_proxy = 'http://127.0.0.1:10809'
+http_proxy = None
 trilium_server_url = 'http://localhost:8080'
 etapi_token = 'YOUR_ETAPI_TOKEN'
+
+
