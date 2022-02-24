@@ -16,6 +16,14 @@ apihelper.proxy = {'https': http_proxy}
 
 bot = telebot.TeleBot(token)
 
+data_dict = {}
+
+
+class TODO:
+    def __init__(self):
+        self.index = None
+        self.description = None
+
 
 def restricted(func):
     """Access Limit"""
@@ -33,10 +41,11 @@ def restricted(func):
     return wrapped
 
 
-def build_todo_list_markup(todo_list):
+def build_todo_list_markup(todo_list, callback_type='TODO_toggle'):
     """
     build markup for todo list
     :param todo_list:
+    :param callback_type:
     :return:
     """
     markup = types.InlineKeyboardMarkup()
@@ -47,10 +56,25 @@ def build_todo_list_markup(todo_list):
             todo_message = '🟩 ' + todo
         markup.add(types.InlineKeyboardButton(text=todo_message,
                                               callback_data=json.dumps({
-                                                  'type': 'TODO_toggle',
+                                                  'type': callback_type,
                                                   'index': i,
                                                   'status': status
                                               })))
+    return markup
+
+
+def build_confirm_markup(callback_type):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(text="Yes",
+                                          callback_data=json.dumps({
+                                              'type': callback_type,
+                                              'confirm': True
+                                          })))
+    markup.add(types.InlineKeyboardButton(text="No",
+                                          callback_data=json.dumps({
+                                              'type': callback_type,
+                                              'confirm': False
+                                          })))
     return markup
 
 
@@ -77,7 +101,11 @@ def send_welcome(message):
     btn_restart = types.KeyboardButton('Restart')
     btn_status = types.KeyboardButton('Status')
     btn_id = types.KeyboardButton('ID')
+    btn_add_todo = types.KeyboardButton('Add TODO')
+    btn_update_todo = types.KeyboardButton('Update TODO')
+    btn_delete_todo = types.KeyboardButton('Delete TODO')
     markup.row(btn_todo, btn_toggle_quick_add)
+    markup.row(btn_add_todo, btn_update_todo, btn_delete_todo)
     markup.row(btn_status, btn_id, btn_restart)
     bot.reply_to(message, "Hi, please choose ~", reply_markup=markup)
 
@@ -87,15 +115,73 @@ def callback_query(call):
     logger.info('callback')
     logger.info(f'{call.data}')
     data = json.loads(call.data)
+    chat_id = call.message.chat.id
+    message_id = call.message.id
 
     if data['type'] == 'TODO_toggle':
         status = data['status']
         ea.todo_check(data['index'], check=not status)
         todo_list = ea.get_todo()
-        return bot.send_message(call.message.chat.id, text="Current TODO List",
-                                reply_markup=build_todo_list_markup(todo_list))
+        bot.delete_message(chat_id, message_id)
+        bot.send_message(chat_id, text="Current TODO List",
+                         reply_markup=build_todo_list_markup(todo_list))
+        return
 
-    return bot.answer_callback_query(call.id, "ok")
+    elif data['type'] == 'Update TODO':
+        logger.info('Update todo')
+        todo = TODO()
+        todo.index = data['index']
+        data_dict[f'{chat_id}_TODO'] = todo
+        bot.delete_message(chat_id, message_id)
+        msg = bot.send_message(chat_id, text="Send me new TODO description")
+        bot.register_next_step_handler(msg, process_update_todo)
+        return
+
+    elif data['type'] == 'Delete TODO':
+        logger.info('Delete todo')
+        todo = TODO()
+        todo.index = data['index']
+        data_dict[f'{chat_id}_TODO_delete'] = todo
+        bot.delete_message(chat_id, message_id)
+        todo_description = ea.get_todo()[todo.index][1]
+        bot.send_message(chat_id, text=f"Are you sure to delete '{todo_description}'",
+                         reply_markup=build_confirm_markup("Delete TODO confirm"))
+        return
+    elif data['type'] == 'Delete TODO confirm':
+        logger.info('Delete todo confirm')
+        confirm = data['confirm']
+        logger.info(confirm)
+        todo = data_dict[f'{chat_id}_TODO_delete']
+        ea.delete_todo(todo.index)
+        todo_list = ea.get_todo()
+        bot.delete_message(chat_id, message_id)
+        bot.send_message(chat_id, text="Current TODO List",
+                         reply_markup=build_todo_list_markup(todo_list))
+        return
+
+    bot.answer_callback_query(call.id, "ok")
+    return
+
+
+def process_add_todo(message):
+    logger.info(f'message {message}')
+    chat_id = message.chat.id
+    todo_description = message.text
+    ea.add_todo(todo_description)
+    todo_list = ea.get_todo()
+    bot.send_message(chat_id, text="Current TODO List",
+                     reply_markup=build_todo_list_markup(todo_list))
+
+
+def process_update_todo(message):
+    logger.info(f'message {message}')
+    chat_id = message.chat.id
+    todo = data_dict[f'{chat_id}_TODO']
+    todo.description = message.text
+    ea.update_todo(todo.index, todo.description)
+    todo_list = ea.get_todo()
+    bot.send_message(chat_id, text="Current TODO List",
+                     reply_markup=build_todo_list_markup(todo_list))
 
 
 @bot.message_handler(func=lambda message: True)
@@ -119,8 +205,19 @@ def echo_all(message):
         return bot.reply_to(message, f"Started {str(datetime.now() - begin_time).split('.')[0]}")
     elif msg in ['TODO', ]:
         todo_list = ea.get_todo()
-        logger.info(todo_list)
         return bot.reply_to(message, "Current TODO List", reply_markup=build_todo_list_markup(todo_list))
+    elif msg in ['Add TODO', ]:
+        tmp_msg = bot.reply_to(message, "Send me TODO description")
+        bot.register_next_step_handler(tmp_msg, process_add_todo)
+        return
+    elif msg in ['Update TODO', ]:
+        todo_list = ea.get_todo()
+        return bot.reply_to(message, "Choose TODO item to modify",
+                            reply_markup=build_todo_list_markup(todo_list, "Update TODO"))
+    elif msg in ['Delete TODO', ]:
+        todo_list = ea.get_todo()
+        return bot.reply_to(message, "Choose TODO item to ~DELETE~",
+                            reply_markup=build_todo_list_markup(todo_list, "Delete TODO"))
 
     if config['quick_add']:
         day_note = ea.inbox(datetime.now().strftime("%Y-%m-%d"))
