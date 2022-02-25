@@ -1,4 +1,6 @@
 {
     "quick_add": true,
-    "single_note": false
+    "single_note": false,
+    "move_yesterday_unfinished_todo": true,
+    "move_todo_time": "00:05"
 }

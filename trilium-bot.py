@@ -1,9 +1,12 @@
 import json
 import os
 import sys
+import threading
+import time
 from datetime import datetime
 from functools import wraps
 
+import schedule
 import telebot
 from loguru import logger
 from telebot import apihelper
@@ -249,10 +252,32 @@ def load_config():
     default_config = {
         'quick_add': True,
         'single_note': False,
+        'move_yesterday_unfinished_todo': True,
+        'move_todo_time': '00:05',
     }
     for x in default_config:
         if x not in config:
             config[x] = default_config[x]
+
+
+def move_todo_job():
+    logger.info("move yesterday's unfinished todo to today")
+    ea.move_yesterday_unfinished_todo_to_today()
+
+
+def run_bot():
+    logger.info('run_bot started')
+    bot.polling(none_stop=True, timeout=10)
+
+
+def run_scheduler():
+    logger.info('run_scheduler started')
+    if config['move_yesterday_unfinished_todo']:
+        move_time = config['move_todo_time']
+        schedule.every().day.at(move_time).do(move_todo_job)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 
 if __name__ == '__main__':
@@ -264,4 +289,7 @@ if __name__ == '__main__':
 
     ea = ETAPI(trilium_server_url, etapi_token)
     logger.info(f'{bot.get_me().username} started')
-    bot.polling(none_stop=True, timeout=10)
+    t_bot = threading.Thread(target=run_bot)
+    t_scheduler = threading.Thread(target=run_scheduler)
+    t_bot.start()
+    t_scheduler.start()
