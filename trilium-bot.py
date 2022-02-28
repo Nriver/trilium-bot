@@ -23,6 +23,7 @@ data_dict = {}
 
 
 class TODO:
+
     def __init__(self):
         self.index = None
         self.description = None
@@ -267,7 +268,13 @@ def move_todo_job():
 
 def run_bot():
     logger.info('run_bot started')
-    bot.polling(none_stop=True, timeout=10)
+    while True:
+        logger.info('start polling')
+        try:
+            bot.polling(none_stop=True, timeout=10)
+        except Exception as e:
+            logger.error(f'bot exception! {e}')
+            time.sleep(1)
 
 
 def run_scheduler():
