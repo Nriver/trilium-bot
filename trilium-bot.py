@@ -97,6 +97,7 @@ def send_user_id(message):
 @restricted
 def send_welcome(message):
     # Note: if buttons modified, a new `/start` is required to get the latest buttons.
+    chat_id = message.chat.id
 
     markup = types.ReplyKeyboardMarkup(row_width=2, one_time_keyboard=True)
 
@@ -111,7 +112,25 @@ def send_welcome(message):
     markup.row(btn_todo, btn_toggle_quick_add)
     markup.row(btn_add_todo, btn_update_todo, btn_delete_todo)
     markup.row(btn_status, btn_id, btn_restart)
+
+    bot.set_my_commands(
+        commands=[
+            telebot.types.BotCommand("start", "reload function buttons"),
+            telebot.types.BotCommand("move", "move yesterday's unfinished todo to today"),
+        ],
+        # limit only for current user
+        scope=telebot.types.BotCommandScopeChat(chat_id)
+    )
+
     bot.reply_to(message, "Hi, please choose ~", reply_markup=markup)
+
+
+@bot.message_handler(commands=['move'])
+@restricted
+def send_welcome(message):
+    """Manually move todo"""
+    move_todo_job()
+    bot.reply_to(message, "Move finished")
 
 
 @bot.callback_query_handler(func=lambda call: True)
