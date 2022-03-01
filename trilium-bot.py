@@ -3,6 +3,7 @@ import os
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from functools import wraps
 
@@ -22,11 +23,10 @@ bot = telebot.TeleBot(token)
 data_dict = {}
 
 
+@dataclass
 class TODO:
-
-    def __init__(self):
-        self.index = None
-        self.description = None
+    index: int = None
+    description: str = None
 
 
 def restricted(func):
